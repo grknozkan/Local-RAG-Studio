@@ -573,7 +573,7 @@ async function submitUserQuery() {
 
   // 5: Local Generation
   triggerStep(5, 'active');
-  const aiMessageId = appendMessage('ai', '<i>Yanıt oluşturuluyor...</i>', true);
+  const aiMessageId = appendMessage('ai', '<span class="typing-dots"><span></span><span></span><span></span></span> <em>Yanıt oluşturuluyor, lütfen bekleyin...</em>', true);
 
   try {
     let responseText = '';
@@ -590,7 +590,7 @@ async function submitUserQuery() {
     console.error('LLM Üretim Hatası:', err);
     // Fallback to built-in generator
     const fallbackText = generateWithBuiltinRAG(query, topMatches);
-    updateMessageContent(aiMessageId, fallbackText + `\n\n*(Not: Ollama bağlantısında sorun yaşandığı için dahili çevrimdışı motor yanıt verdi.)*`, topMatches);
+    updateMessageContent(aiMessageId, fallbackText + `\n\n*(Not: Yerel Ollama yanıt vermediği için dahili çevrimdışı motor devreye girdi.)*`, topMatches);
     triggerStep(5, 'completed');
     document.getElementById('pipelineStatusText').textContent = 'Çevrimdışı Modda Tamamlandı';
   }
@@ -602,7 +602,7 @@ function buildAugmentedPrompt(query, matches) {
     contextStr += `[Belge ${idx + 1}: ${item.chunk.docName} (Skor: %${item.scorePercent})]\n${item.chunk.text}\n\n`;
   });
 
-  return `Sistem Talimatı: Sen %100 yerel ve çevrimdışı çalışan bir RAG asistanısın. Aşağıda kullanıcının yüklediği belgelerden getirilen özel bağlam bilgisi verilmiştir. Sadece verilen bu bağlama dayanarak kullanıcının sorusunu Türkçe olarak detaylı ve açık bir şekilde yanıtla.
+  return `Sistem Talimatı: Sen %100 yerel ve çevrimdışı çalışan bir RAG asistanısın. Aşağıda kullanıcının yüklediği belgelerden getirilen özel bağlam bilgisi verilmiştir. Sadece verilen bu bağlama dayanarak kullanıcının sorusunu Türkçe olarak detaylı ve açık bir şekilde yanıtla. Cümleleri ve kelimeleri hiçbir şekilde yarım bırakma.
 
 BAGLAM BİLGİLERİ:
 ${contextStr || 'İlgili bağlam bulunamadı.'}
@@ -615,7 +615,7 @@ YANIT:`;
 
 function generateWithBuiltinRAG(query, matches) {
   if (matches.length === 0) {
-    return `Yüklenen belgelerde "${query}" sorusuyla eşleşen yeterli bilgi bulunamadı. Lütfen RAG konfigürasyonundan **Min. Benzerlik Eşiği** değerini düşürmeyi veya belgelerinize yeni konular eklemeyi deneyin.`;
+    return `Yüklenen belgelerde "${query}" sorusuyla eşleşen yeterli bilgi bulunamadı. Lütfen RAG konfigürasyonundan **Min. Benzerlik Eşiği** değerini düşürmeyi (%10 veya %0 yapmayı) veya belgelerinize yeni konular eklemeyi deneyin.`;
   }
 
   // Smart extractive summary synthesis from top matched chunks
@@ -636,25 +636,35 @@ function generateWithBuiltinRAG(query, matches) {
 
 async function generateWithOllama(prompt) {
   const endpoint = `${state.config.endpointUrl}/api/generate`;
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: state.config.customModelName || 'llama3',
-      prompt: prompt,
-      stream: false,
-      options: {
-        temperature: state.config.temperature
-      }
-    })
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!response.ok) {
-    throw new Error(`Ollama HTTP Hata: ${response.status}`);
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: state.config.customModelName || 'llama3',
+        prompt: prompt,
+        stream: false,
+        options: {
+          temperature: state.config.temperature
+        }
+      })
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Ollama HTTP Hata: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.response;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
-
-  const data = await response.json();
-  return data.response;
 }
 
 // ==========================================================================
