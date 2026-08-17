@@ -427,14 +427,19 @@ function chunkText(text, size, overlap) {
   while (start < text.length) {
     let end = start + size;
     if (end < text.length) {
-      // Try to break at paragraph or sentence boundary
+      // Find clean word / sentence / paragraph break to avoid cutting words
       const lastBreak = text.lastIndexOf('\n', end);
-      if (lastBreak > start + size * 0.5) {
+      if (lastBreak > start + size * 0.4) {
         end = lastBreak;
       } else {
-        const lastPeriod = text.lastIndexOf('. ', end);
-        if (lastPeriod > start + size * 0.5) {
-          end = lastPeriod + 1;
+        const lastSentence = text.lastIndexOf('. ', end);
+        if (lastSentence > start + size * 0.4) {
+          end = lastSentence + 1;
+        } else {
+          const lastSpace = text.lastIndexOf(' ', end);
+          if (lastSpace > start) {
+            end = lastSpace;
+          }
         }
       }
     }
@@ -445,6 +450,13 @@ function chunkText(text, size, overlap) {
     }
 
     start = end - overlap;
+    if (start > 0 && start < text.length) {
+      const prevSpace = text.lastIndexOf(' ', start);
+      if (prevSpace > start - 40 && prevSpace > 0) {
+        start = prevSpace + 1;
+      }
+    }
+
     if (start >= text.length - overlap) break;
   }
 
@@ -454,7 +466,7 @@ function chunkText(text, size, overlap) {
 function tokenize(text) {
   return text
     .toLowerCase()
-    .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ')
+    .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFFğüşıöçĞÜŞİÖÇ]/g, ' ')
     .split(/\s+/)
     .filter(t => t.length > 1);
 }
@@ -610,11 +622,15 @@ function generateWithBuiltinRAG(query, matches) {
   let summary = `**"${query}"** hakkındaki belgelerinize dayanan yanıt:\n\n`;
   
   matches.forEach((m, idx) => {
-    const snippet = m.chunk.text.replace(/\n+/g, ' ');
-    summary += `▪ **${m.chunk.docName}** belgesinden alınan verilere göre (%${m.scorePercent} uyum):\n> "${snippet.substring(0, 220)}..."\n\n`;
+    let snippet = m.chunk.text.replace(/\n+/g, ' ').trim();
+    if (snippet.length > 350) {
+      const lastSpace = snippet.lastIndexOf(' ', 350);
+      snippet = (lastSpace > 200 ? snippet.substring(0, lastSpace) : snippet.substring(0, 350)) + '...';
+    }
+    summary += `▪ **${m.chunk.docName}** (Parça #${m.chunk.index} - %${m.scorePercent} uyum):\n> "${snippet}"\n\n`;
   });
 
-  summary += `\n📌 **Özet Değerlendirme:** Belgelerdeki bilgilere göre ilgili prosedür ve kurallar yukarıdaki kaynak parçalarla doğrulanmıştır.`;
+  summary += `📌 **Özet Değerlendirme:** Belgelerdeki ilgili metin parçaları kelime bütünlüğü korunarak aktarılmıştır.`;
   return summary;
 }
 
