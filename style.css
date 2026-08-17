@@ -454,7 +454,9 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 /* Pipeline Visualizer Bar */
@@ -462,6 +464,7 @@ input[type="range"] {
   background: rgba(18, 22, 34, 0.95);
   border-bottom: 1px solid var(--border-subtle);
   padding: 12px 20px;
+  flex-shrink: 0;
 }
 
 .pipeline-title {
@@ -559,7 +562,9 @@ input[type="range"] {
 /* Chat History Stream */
 .chat-history {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  scroll-behavior: smooth;
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -688,6 +693,26 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(18, 22, 34, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 242, 254, 0.3);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
 }
 
 .prompt-templates {
