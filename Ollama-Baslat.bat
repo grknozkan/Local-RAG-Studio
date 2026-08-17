@@ -4,5 +4,9 @@ echo ===================================================
 echo  Foundry Local RAG - Ollama Servisi Baslatiliyor...
 echo ===================================================
 set OLLAMA_ORIGINS=*
-"C:\Users\Gürkan\AppData\Local\Programs\Ollama\ollama.exe" serve
+if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" (
+    "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" serve
+) else (
+    ollama serve
+)
 pause
