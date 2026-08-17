@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foundry Local RAG Studio | %100 Yerel Yapay Zeka & Vektör Deposu</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- PDF.js for local PDF text extraction in browser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+  <div class="app-container">
+    
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo">
+          <div class="logo-icon">
+            <i class="fa-solid fa-brain-circuit"></i>
+          </div>
+          <div class="logo-text">
+            <h1>Foundry Local <span>RAG Studio</span></h1>
+            <p class="tagline">%100 Yerel, Gizli ve Çevrimdışı Yapay Zeka Rehberi</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <!-- Live Connection Status Badge -->
+        <div class="status-badge offline" id="connectionBadge">
+          <span class="status-dot"></span>
+          <span id="connectionText">Ollama Bağlantısı: Kontrol Ediliyor...</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Local LLM Model Selector -->
+        <div class="model-select-wrapper">
+          <i class="fa-solid fa-microchip"></i>
+          <select id="modelSelector" title="Yerel LLM Modeli Seçin">
+            <option value="llama3">llama3 (Ollama)</option>
+            <option value="mistral">mistral (Ollama)</option>
+            <option value="qwen2.5">qwen2.5 (Ollama)</option>
+            <option value="phi3">phi3 (Ollama)</option>
+            <option value="nomic-embed-text">nomic-embed-text (Embeddings)</option>
+            <option value="builtin-offline" selected>⚡ Dahili Çevrimdışı Engine (Dahili)</option>
+          </select>
+        </div>
+
+        <button class="btn btn-icon" id="btnSettings" title="Bağlantı ve LLM Ayarları">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Layout -->
+    <div class="main-layout">
+      
+      <!-- Left Panel: Document Knowledge Base & Pipeline Config -->
+      <aside class="sidebar left-sidebar">
+        
+        <!-- Document Upload & Library Card -->
+        <div class="card doc-card">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-folder-open"></i> Yerel Bilgi Bankası</h3>
+            <span class="badge" id="docCountBadge">0 Belge</span>
+          </div>
+
+          <!-- Drag and Drop Area -->
+          <div class="drop-zone" id="dropZone">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p class="drop-title">Dosya Sürükleyin veya Seçin</p>
+            <p class="drop-sub">.txt, .md, .pdf, .json, .csv desteklenir</p>
+            <input type="file" id="fileInput" multiple accept=".txt,.md,.pdf,.json,.csv" hidden>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('fileInput').click()">
+              <i class="fa-solid fa-plus"></i> Belge Ekle
+            </button>
+          </div>
+
+          <!-- Quick Load Sample Documents -->
+          <div class="sample-docs-action">
+            <button class="btn btn-ghost btn-block" id="btnLoadSamples">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Örnek Belgeleri Yükle (RAG Demosu)
+            </button>
+          </div>
+
+          <!-- Document List Container -->
+          <div class="doc-list" id="docList">
+            <div class="empty-state">
+              <i class="fa-solid fa-file-circle-plus"></i>
+              <p>Henüz yüklenmiş belge yok</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- RAG Parameters & Tuning Card -->
+        <div class="card config-card">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-sliders"></i> RAG Konfigürasyonu</h3>
+            <button class="btn-text" id="btnResetConfig" title="Varsayılana Sıfırla"><i class="fa-solid fa-rotate-left"></i> Sıfırla</button>
+          </div>
+
+          <div class="config-group">
+            <div class="config-item">
+              <label for="chunkSize">Parça Boyutu (Chunk Size): <span id="chunkSizeVal" class="val-tag">500 karakter</span></label>
+              <input type="range" id="chunkSize" min="100" max="1500" step="50" value="500">
+            </div>
+
+            <div class="config-item">
+              <label for="chunkOverlap">Çakışma (Chunk Overlap): <span id="chunkOverlapVal" class="val-tag">100 karakter</span></label>
+              <input type="range" id="chunkOverlap" min="0" max="300" step="10" value="100">
+            </div>
+
+            <div class="config-item">
+              <label for="topK">En Benzer Parça (Top-K): <span id="topKVal" class="val-tag">3 Parça</span></label>
+              <input type="range" id="topK" min="1" max="10" step="1" value="3">
+            </div>
+
+            <div class="config-item">
+              <label for="minScore">Min. Benzerlik Eşiği: <span id="minScoreVal" class="val-tag">%20</span></label>
+              <input type="range" id="minScore" min="0" max="90" step="5" value="20">
+            </div>
+
+            <div class="config-item">
+              <label for="temperature">Sıcaklık (Temperature): <span id="tempVal" class="val-tag">0.3</span></label>
+              <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.3">
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats & Index Info Card -->
+        <div class="card stats-card">
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-num" id="statChunks">0</span>
+              <span class="stat-lbl">Toplam Parça</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-num" id="statVectors">0</span>
+              <span class="stat-lbl">Vektör Sayısı</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-num" id="statWords">0</span>
+              <span class="stat-lbl">Kelime İndeksi</span>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- Center Panel: Interactive RAG Chat & Pipeline Visualizer -->
+      <main class="chat-area">
+        
+        <!-- Live RAG Step Pipeline Visualizer -->
+        <div class="pipeline-visualizer" id="pipelineVisualizer">
+          <div class="pipeline-title">
+            <span><i class="fa-solid fa-diagram-project"></i> RAG İşlem Akış Görselleştiricisi (Pipeline Steps)</span>
+            <span class="pipeline-status" id="pipelineStatusText">Hazır</span>
+          </div>
+
+          <div class="steps-row">
+            <div class="step-box" id="step1">
+              <div class="step-icon"><i class="fa-solid fa-file-lines"></i></div>
+              <div class="step-info">
+                <span class="step-no">Adım 1</span>
+                <span class="step-label">Belge Parçalama</span>
+              </div>
+            </div>
+
+            <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+
+            <div class="step-box" id="step2">
+              <div class="step-icon"><i class="fa-solid fa-code-compare"></i></div>
+              <div class="step-info">
+                <span class="step-no">Adım 2</span>
+                <span class="step-label">Vektör Embeddings</span>
+              </div>
+            </div>
+
+            <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+
+            <div class="step-box" id="step3">
+              <div class="step-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+              <div class="step-info">
+                <span class="step-no">Adım 3</span>
+                <span class="step-label">Top-K Benzerlik</span>
+              </div>
+            </div>
+
+            <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+
+            <div class="step-box" id="step4">
+              <div class="step-icon"><i class="fa-solid fa-layer-group"></i></div>
+              <div class="step-info">
+                <span class="step-no">Adım 4</span>
+                <span class="step-label">Prompt Artırımı</span>
+              </div>
+            </div>
+
+            <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+
+            <div class="step-box" id="step5">
+              <div class="step-icon"><i class="fa-solid fa-robot"></i></div>
+              <div class="step-info">
+                <span class="step-no">Adım 5</span>
+                <span class="step-label">Yerel YZ Üretimi</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Stream & Messages -->
+        <div class="chat-history" id="chatHistory">
+          <!-- Welcome Message -->
+          <div class="message system-message">
+            <div class="message-avatar"><i class="fa-solid fa-robot"></i></div>
+            <div class="message-content">
+              <h3>👋 Foundry Local RAG Studio'ya Hoş Geldiniz!</h3>
+              <p>Bu uygulama tamamen <strong>bilgisayarınızda çevrimdışı</strong> çalışır. Sol panelden kendi PDF veya metin belgelerinizi yükleyebilir, ardından verileriniz üzerinde yerel yapay zeka ile soru sorabilirsiniz.</p>
+              <div class="feature-badges">
+                <span class="f-badge"><i class="fa-solid fa-lock"></i> %100 Veri Gizliliği</span>
+                <span class="f-badge"><i class="fa-solid fa-wifi"></i> İnternetsiz Çalışma</span>
+                <span class="f-badge"><i class="fa-solid fa-bolt"></i> Sıfır API Ücreti</span>
+                <span class="f-badge"><i class="fa-solid fa-microchip"></i> Ollama / Foundry Hazır</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Input & Quick Prompts Bar -->
+        <div class="chat-input-container">
+          
+          <!-- Template Suggestions -->
+          <div class="prompt-templates" id="promptTemplates">
+            <span class="template-label"><i class="fa-solid fa-lightbulb"></i> Hızlı Sorular:</span>
+            <button class="template-btn" data-prompt="Yüklediğim belgelerde ne tür bilgiler bulunuyor? Özetle.">📋 Belgeleri Özetle</button>
+            <button class="template-btn" data-prompt="Şirket içi izin politikası ve çalışma saatleri nedir?">🏢 Şirket Politikası</button>
+            <button class="template-btn" data-prompt="RAG nedir ve Foundry Local ile yerel yapay zeka nasıl kurulur?">🤖 RAG & Foundry Kurulumu</button>
+          </div>
+
+          <!-- Input Box -->
+          <form class="input-form" id="chatForm">
+            <textarea id="userInput" placeholder="Yerel belgeleriniz hakkında bir soru sorun... (Enter ile gönder)" rows="2"></textarea>
+            <button type="submit" class="btn btn-primary btn-send" id="btnSend">
+              <span>Gönder</span> <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </form>
+          
+          <div class="input-footer">
+            <span><i class="fa-solid fa-shield-halved"></i> Sorularınız ve belgeleriniz dışarıya gitmez.</span>
+            <span id="activeModelFooter">Aktif Model: Dahili Çevrimdışı Engine</span>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- Right Panel: Context Inspector & Vector Match Detail -->
+      <aside class="sidebar right-sidebar">
+        
+        <div class="card inspector-card">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-crosshairs"></i> Getirilen Bağlam (Context)</h3>
+            <span class="badge badge-accent" id="contextMatchCount">0 Parça</span>
+          </div>
+
+          <!-- Inspector Tabs -->
+          <div class="inspector-tabs">
+            <button class="tab-btn active" data-tab="retrievedChunks"><i class="fa-solid fa-cubes"></i> Parçalar</button>
+            <button class="tab-btn" data-tab="augmentedPrompt"><i class="fa-solid fa-code"></i> Ham Prompt</button>
+          </div>
+
+          <!-- Tab Content: Chunks -->
+          <div class="tab-content active" id="tabRetrievedChunks">
+            <div class="empty-state" id="emptyContext">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <p>Bir soru sorduğunuzda bulunan en alakalı metin parçaları burada listelenecektir.</p>
+            </div>
+            <div class="chunks-container" id="chunksContainer"></div>
+          </div>
+
+          <!-- Tab Content: Raw Augmented Prompt -->
+          <div class="tab-content" id="tabAugmentedPrompt">
+            <pre class="raw-prompt-view" id="rawPromptView">Henüz bir prompt oluşturulmadı.</pre>
+          </div>
+        </div>
+
+        <!-- RAG Architecture & Guide Card -->
+        <div class="card guide-card">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-book"></i> RAG Nasıl Çalışır?</h3>
+          </div>
+          <div class="guide-steps">
+            <div class="g-step">
+              <span class="g-num">1</span>
+              <div>
+                <strong>Belge Alma:</strong> Belgeler küçük metin parçalarına (chunks) bölünür.
+              </div>
+            </div>
+            <div class="g-step">
+              <span class="g-num">2</span>
+              <div>
+                <strong>Vektörleştirme:</strong> Metinler anlamsal matrislere (embeddings) dönüştürülür.
+              </div>
+            </div>
+            <div class="g-step">
+              <span class="g-num">3</span>
+              <div>
+                <strong>Sorgu Eşleştirme:</strong> Sorduğunuz soru ile en alakalı Top-K parça bulunur.
+              </div>
+            </div>
+            <div class="g-step">
+              <span class="g-num">4</span>
+              <div>
+                <strong>Yanıt Üretimi:</strong> Yerel LLM sadece bulunan bu güvenli bağlama bakarak yanıt üretir.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+  <!-- Connection & Local Endpoint Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-sliders"></i> Yerel LLM & Endpoint Ayarları</h3>
+        <button class="btn-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="endpointUrl">Yerel Model Endpoint URL:</label>
+          <input type="text" id="endpointUrl" value="http://localhost:11434" placeholder="http://localhost:11434">
+          <small class="help-text">Ollama için `http://localhost:11434`, LM Studio için `http://localhost:1234`</small>
+        </div>
+
+        <div class="form-group">
+          <label for="customModelName">Ollama Model Adı:</label>
+          <input type="text" id="customModelName" value="llama3" placeholder="llama3, mistral, qwen2.5 vb.">
+          <small class="help-text">Terminalinizde `ollama run llama3` ile indirdiğiniz model adını yazın.</small>
+        </div>
+
+        <div class="form-group">
+          <label>Bağlantı Modu:</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="mode" value="ollama" checked>
+              <span>Ollama / Foundry Local Endpoint</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="mode" value="builtin">
+              <span>⚡ Dahili Çevrimdışı Engine (İnternetsiz / Kurulumsuz)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="test-conn-box">
+          <button class="btn btn-secondary" id="btnTestConn">
+            <i class="fa-solid fa-plug-circle-bolt"></i> Connection Test et
+          </button>
+          <span id="testResultText" class="test-result"></span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btnCancelModal">İptal</button>
+        <button class="btn btn-primary" id="btnSaveModal">Kaydet ve Uygula</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
